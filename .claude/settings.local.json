@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__WebSearch__bailian_web_search",
+      "Bash(unzip -l ashare-intraday-review.skill)",
+      "Bash(python -c \"import zipfile; z=zipfile.ZipFile\\('ashare-intraday-review.skill'\\); [print\\(f'{i.filename} \\({i.file_size} bytes\\)'\\) for i in z.infolist\\(\\)]\")",
+      "Bash(python -c \"import zipfile; z=zipfile.ZipFile\\('ashare-intraday-review.skill'\\); print\\(z.read\\('ashare-intraday-review/SKILL.md'\\).decode\\('utf-8'\\)\\)\")",
+      "Bash(python -c \"import zipfile, sys; sys.stdout.reconfigure\\(encoding='utf-8'\\); z=zipfile.ZipFile\\('ashare-intraday-review.skill'\\); print\\(z.read\\('ashare-intraday-review/SKILL.md'\\).decode\\('utf-8'\\)\\)\")"
+    ]
+  }
+}
