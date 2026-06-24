@@ -1,5 +1,5 @@
 {
-  "_schema_notes": "自选股记录本地模板。target_buy_condition应是基于估值/质地的客观判断标准(价值投资角度),不是'涨了就追'之类的描述。",
+  "_schema_notes": "自选股记录本地模板。target_buy_condition应是基于估值/质地的客观判断标准(价值投资角度),不是'涨了就追'之类的描述。\n\n(本文件已迁移至项目根目录 templates/ 下,请使用 ../../../templates/watchlist_template.json 路径。保留此副本仅用于向后兼容。)",
 
   "watchlist": [
     {

@@ -1,5 +1,5 @@
 {
-  "_schema_notes": "持仓记录本地模板。min_holding_days默认5,对应用户最低持有纪律。stop_loss/take_profit/add_on_trigger均为用户自行预设的纪律线,本skill只负责核对是否触及,不负责临场重新判断或修改这些线。",
+  "_schema_notes": "持仓记录本地模板。min_holding_days默认5,对应用户最低持有纪律。stop_loss/take_profit/add_on_trigger均为用户自行预设的纪律线,本skill只负责核对是否触及,不负责临场重新判断或修改这些线。\n\n(本文件已迁移至项目根目录 templates/ 下,请使用 ../../../templates/positions_template.json 路径。保留此副本仅用于向后兼容。)",
 
   "positions": [
     {

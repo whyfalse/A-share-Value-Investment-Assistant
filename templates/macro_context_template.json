@@ -1,5 +1,5 @@
 {
-  "_schema_notes": "本文件是 ashare-macro-context skill 的本地记忆模板。新建记忆库时以此为骨架,当前框架版本下的类别都应建空位条目,避免遗漏已确立的类别。tier: 1=慢变量(建议90天复核) 2=周期变量(建议30天复核) 3=事件驱动(发生时更新,next_review_due可为null)。summary 只写客观事实陈述,不写买卖判断。entries 存放已确立维度,candidates 存放尚在观察、未转正的候选维度——两者不要混放。\n\n(本文件已迁移至项目根目录 templates/ 下,请使用 ../../../templates/macro_context_template.json 路径。保留此副本仅用于向后兼容。)",
+  "_schema_notes": "本文件是 ashare-macro-context skill 的本地记忆模板。新建记忆库时以此为骨架,当前框架版本下的类别都应建空位条目,避免遗漏已确立的类别。tier: 1=慢变量(建议90天复核) 2=周期变量(建议30天复核) 3=事件驱动(发生时更新,next_review_due可为null)。summary 只写客观事实陈述,不写买卖判断。entries 存放已确立维度,candidates 存放尚在观察、未转正的候选维度——两者不要混放。",
 
   "framework_version": "v1",
 
