@@ -22,7 +22,24 @@
       "Bash(node scripts/cli.mjs call analytics_data get_financial_data '{\"question\":\"2026年6月24日北向资金陆股通当日净流入净买入成交净额\"}')",
       "Bash(node scripts/cli.mjs call financial_docs get_financial_news '{\"query\":\"国内政策监管行业产业动态2026年6月24日\",\"top_k\":5}')",
       "WebSearch",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Read(//c/Users/aimsn/.agents/skills/wind-mcp-skill/**)",
+      "Bash(node scripts/cli.mjs call stock_data get_stock_price_indicators '{\"windcode\":\"002463.SZ\",\"indexes\":\"中文简称,最新成交价,涨跌幅,成交量,成交额,换手率,振幅,量比\"}')",
+      "Bash(node scripts/cli.mjs call stock_data get_stock_price_indicators '{\"windcode\":\"600584.SH\",\"indexes\":\"中文简称,最新成交价,涨跌幅,成交量,成交额,换手率,振幅,量比\"}')",
+      "Bash(node scripts/cli.mjs call stock_data get_stock_price_indicators '{\"windcode\":\"603629.SH\",\"indexes\":\"中文简称,最新成交价,涨跌幅,成交量,成交额,换手率,振幅,量比\"}')",
+      "Bash(node scripts/cli.mjs call fund_data get_fund_price_indicators '{\"windcode\":\"159558.SZ\",\"indexes\":\"中文简称,最新成交价,涨跌幅,成交量,成交额,换手率,振幅,量比\"}')",
+      "Bash(node scripts/cli.mjs call index_data get_index_price_indicators '{\"windcode\":\"000001.SH\",\"indexes\":\"最新成交价,涨跌幅,成交量,成交额\"}')",
+      "Bash(node scripts/cli.mjs call index_data get_index_price_indicators '{\"windcode\":\"399001.SZ\",\"indexes\":\"最新成交价,涨跌幅,成交量,成交额\"}')",
+      "Bash(node scripts/cli.mjs call index_data get_index_price_indicators '{\"windcode\":\"399006.SZ\",\"indexes\":\"最新成交价,涨跌幅,成交量,成交额\"}')",
+      "Bash(node scripts/cli.mjs call index_data get_index_price_indicators '{\"windcode\":\"000688.SH\",\"indexes\":\"最新成交价,涨跌幅,成交量,成交额\"}')",
+      "Bash(node scripts/cli.mjs call index_data get_index_kline '{\"windcode\":\"000001.SH\",\"begin_date\":\"20260609\",\"end_date\":\"20260625\",\"period\":\"10\"}')",
+      "Bash(node scripts/cli.mjs call index_data get_index_kline '{\"windcode\":\"399001.SZ\",\"begin_date\":\"20260609\",\"end_date\":\"20260625\",\"period\":\"10\"}')",
+      "Bash(node scripts/cli.mjs call index_data get_index_kline '{\"windcode\":\"399006.SZ\",\"begin_date\":\"20260609\",\"end_date\":\"20260625\",\"period\":\"10\"}')",
+      "Bash(node scripts/cli.mjs call index_data get_index_kline '{\"windcode\":\"000688.SH\",\"begin_date\":\"20260609\",\"end_date\":\"20260625\",\"period\":\"10\"}')",
+      "Bash(node scripts/cli.mjs call stock_data get_stock_kline '{\"windcode\":\"002463.SZ\",\"begin_date\":\"20260609\",\"end_date\":\"20260625\",\"period\":\"10\"}')",
+      "Bash(node scripts/cli.mjs call stock_data get_stock_kline '{\"windcode\":\"600584.SH\",\"begin_date\":\"20260609\",\"end_date\":\"20260625\",\"period\":\"10\"}')",
+      "Bash(node scripts/cli.mjs call fund_data get_fund_kline '{\"windcode\":\"159558.SZ\",\"begin_date\":\"20260609\",\"end_date\":\"20260625\",\"period\":\"10\"}')",
+      "Bash(node scripts/cli.mjs call stock_data get_stock_kline '{\"windcode\":\"603629.SH\",\"begin_date\":\"20260609\",\"end_date\":\"20260625\",\"period\":\"10\"}')"
     ]
   }
 }

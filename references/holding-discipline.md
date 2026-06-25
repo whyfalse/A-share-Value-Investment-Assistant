@@ -1,5 +1,7 @@
 # 最低持有纪律 (Minimum Holding Discipline)
 
+> 本文件的内容已合并至 `references/boundaries.md`（共享边界声明第1条）。新技能请直接引用 `boundaries.md`。本文件保留以供向后兼容。
+
 ## 规则
 
 用户的核心持仓策略是中长期持股，最低持有 **5 个交易日**以上。
