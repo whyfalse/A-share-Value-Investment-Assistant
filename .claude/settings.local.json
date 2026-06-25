@@ -39,7 +39,9 @@
       "Bash(node scripts/cli.mjs call stock_data get_stock_kline '{\"windcode\":\"002463.SZ\",\"begin_date\":\"20260609\",\"end_date\":\"20260625\",\"period\":\"10\"}')",
       "Bash(node scripts/cli.mjs call stock_data get_stock_kline '{\"windcode\":\"600584.SH\",\"begin_date\":\"20260609\",\"end_date\":\"20260625\",\"period\":\"10\"}')",
       "Bash(node scripts/cli.mjs call fund_data get_fund_kline '{\"windcode\":\"159558.SZ\",\"begin_date\":\"20260609\",\"end_date\":\"20260625\",\"period\":\"10\"}')",
-      "Bash(node scripts/cli.mjs call stock_data get_stock_kline '{\"windcode\":\"603629.SH\",\"begin_date\":\"20260609\",\"end_date\":\"20260625\",\"period\":\"10\"}')"
+      "Bash(node scripts/cli.mjs call stock_data get_stock_kline '{\"windcode\":\"603629.SH\",\"begin_date\":\"20260609\",\"end_date\":\"20260625\",\"period\":\"10\"}')",
+      "Bash(sed -n '3p' \"d:/A-share-Value-Investment-Assistant/.claude/agents/ashare-value-investment-orchestrator.md\")",
+      "Read(//tmp/**)"
     ]
   }
 }
