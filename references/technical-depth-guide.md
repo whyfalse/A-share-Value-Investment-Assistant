@@ -2,7 +2,7 @@
 
 四个复盘技能（`ashare-morning-brief` / `ashare-intraday-review` / `ashare-evening-review` / `ashare-weekly-review`）统一引用本指南，把"技术面深度"作为复盘内容的一部分，避免报告停留在消息面流水账。本指南规定：何时调用技术引擎、三类资产怎么调、引擎输出怎么读、各时段技术深度配方、大盘与板块的深度写法、条件式情景的写法模板、以及数据不可用时的降级规则。
 
-技术深度的边界统一遵守 `boundaries.md` §7（客观状态描述 + 对称条件式情景，不预测单边走势、不给买卖价位指令、不突破最低持有纪律）。本指南只解决"怎么做深"，不放宽边界。
+技术深度的边界统一遵守 `boundaries.md` §7。本指南只解决"怎么做深"，不放宽边界。
 
 ## 一、核心原则：把"数字"翻译成"状态+情景"，不是甩数字
 
@@ -15,28 +15,26 @@
 
 ## 二、技术引擎调用方法（复用 `ashare-technical-analysis` 引擎）
 
-引擎在 `.claude/skills/ashare-technical-analysis/scripts/` 下，两步走：先 `fetch_data.py` 取数据，再 `compute_indicators.py` 算指标。**从项目根目录运行**，输出统一落到一个复盘缓存目录（建议 `output/_tech_cache/`，用完即弃，不污染最终报告目录）。
+引擎在 `.claude/skills/ashare-technical-analysis/scripts/` 下，两步走：先取数据，再 `compute_indicators.py` 算指标。**从项目根目录运行**，输出统一落到一个复盘缓存目录（建议 `output/_tech_cache/`，用完即弃，不污染最终报告目录）。
 
-> 重要：引擎依赖 akshare（`pip install akshare`），首次导入失败时按第八节降级处理，不要编造指标数字。
+**取数方式**（与 `ashare-technical-analysis` 技能步骤1一致）：取数前读 auto-memory 的 `data-source-config.json`（由 `ashare-data-source-config` 技能维护），按 `cn_tech_daily` 桶的路由优先级择源——专业金融 MCP（Wind）→ 本地已安装的 Python 行情包 → 联网搜索兜底（仅采信定性信息）。无论用哪个工具，产出必须满足数据契约：一份标准化日线 CSV，必需列 `date`/`open`/`high`/`low`/`close`/`volume`，前复权，按 date 升序，回溯长度尽量 ≥250 个交易日。任何一环失败按第七节降级处理，不要编造指标数字。
+
+取得 CSV 后，调用 `compute_indicators.py` 计算指标：
 
 **个股（持仓/自选股，默认类型）**：
 
 ```bash
-# 1) 取数据(默认asset-type=stock,自动附带沪深300基准用于相对强弱)
-python .claude/skills/ashare-technical-analysis/scripts/fetch_data.py \
-  --code 600584 --out-dir output/_tech_cache
-# 2) 算指标(--benchmark-csv 用上一步meta里的benchmark_csv_path,有则传)
 python .claude/skills/ashare-technical-analysis/scripts/compute_indicators.py \
   --csv output/_tech_cache/600584_daily.csv \
   --benchmark-csv output/_tech_cache/benchmark_000300.csv \
   --out-json output/_tech_cache/600584_ind.json
 ```
 
-**指数（大盘四大指数）**：用 `--asset-type index`，指数代码见下表。指数不取基准、不算相对强弱。
+`--benchmark-csv` 传入沪深300基准 CSV（只需 `date`、`close` 两列），用于相对强弱维度；没有则跳过该维度。
+
+**指数（大盘四大指数）**：指数代码见下表。指数不取基准、不算相对强弱。
 
 ```bash
-python .claude/skills/ashare-technical-analysis/scripts/fetch_data.py \
-  --code 000001 --asset-type index --out-dir output/_tech_cache
 python .claude/skills/ashare-technical-analysis/scripts/compute_indicators.py \
   --csv output/_tech_cache/000001_daily.csv --out-json output/_tech_cache/000001_ind.json
 ```
@@ -47,16 +45,12 @@ python .claude/skills/ashare-technical-analysis/scripts/compute_indicators.py \
 | 深证成指 | 399001 | 科创50 | 000688 |
 | 沪深300 | 000300 | 北证50 | 899050 |
 
-**ETF/场内基金（如持仓 159558）**：用 `--asset-type etf`。
+**ETF/场内基金**：操作同个股，但不取基准。
 
 ```bash
-python .claude/skills/ashare-technical-analysis/scripts/fetch_data.py \
-  --code 159558 --asset-type etf --out-dir output/_tech_cache
 python .claude/skills/ashare-technical-analysis/scripts/compute_indicators.py \
   --csv output/_tech_cache/159558_daily.csv --out-json output/_tech_cache/159558_ind.json
 ```
-
-> 首次对指数/ETF 调用若报 akshare 接口列名不符（akshare 版本差异可能导致 `index_zh_a_hist` / `fund_etf_hist_em` 字段变动），把报错原样告知用户并降级为定性描述，不要硬编数字。
 
 ## 三、引擎输出 JSON 字段速查
 
@@ -85,8 +79,8 @@ python .claude/skills/ashare-technical-analysis/scripts/compute_indicators.py \
 
 晚间是数据最全、时间最宽裕的时段，是技术深度的主战场。流程：
 
-1. **跑大盘**：对上证/深证成指/创业板指/科创50 四大指数用 `--asset-type index` 各跑一遍，得到指数的均线排列、量价、ADX 趋势强度。
-2. **跑持仓+自选**：对 `data/positions.json` 每只持仓、`data/watchlist.json` 每只自选股跑引擎（ETF 用 `--asset-type etf`，个股默认）。
+1. **跑大盘**：对上证/深证成指/创业板指/科创50 四大指数各跑一遍（不取基准、不算相对强弱），得到指数的均线排列、量价、ADX 趋势强度。
+2. **跑持仓+自选**：对 `data/positions.json` 每只持仓、`data/watchlist.json` 每只自选股跑引擎（ETF 不取基准，个股取沪深300基准用于相对强弱）。
 3. **每只标的产出"四维深度卡片"**：基本面（消息面变化）/ 技术面（状态描述）/ 资金面 / 消息面，末尾加一条**对称条件式情景**和一条**纪律线校准**（现价距用户预设止盈/止损/加仓线还有多远，是否触及）。
 4. **大盘 beta vs 个股 alpha**：用 `relative_strength.alpha_20d/60d` 说明持仓今日异动是跟大盘走还是自己走。
 
@@ -127,7 +121,7 @@ python .claude/skills/ashare-technical-analysis/scripts/compute_indicators.py \
 
 ### 5.1 大盘指数（四大指数）
 
-指数用 `--asset-type index` 跑，**不算相对强弱**（指数本身就是基准）。深度来自：
+指数（本身就是基准）**不算相对强弱**。深度来自：
 
 - **均线排列 + 位置**：四大指数各自的 `ma_arrangement`（多头/空头/纠缠）和价格相对 MA20/MA60/MA250 的位置，一句话概括各指数处在"健康上行 / 高位震荡 / 趋势走弱 / 底部修复"哪个状态。
 - **ADX 定趋势强度**：`adx14`<20 写"震荡市、方向感弱"，>40 写"趋势强劲"，据此给后面的信号"打折"。
@@ -174,12 +168,13 @@ python .claude/skills/ashare-technical-analysis/scripts/compute_indicators.py \
 
 ## 七、数据不可用时的降级规则
 
-引擎依赖 akshare 联网取数，任何一环失败都按下列规则降级，**核心红线：宁可缺维度，绝不编数字**。
+取数按 `data-source-config.json` 路由优先级依次尝试（专业金融 MCP（Wind）→ 本地 Python 行情包 → 联网搜索），任何一环失败都按下列规则降级。**核心红线：宁可缺维度，绝不编数字**。
 
-- **akshare 未安装 / 导入失败**：`pip install akshare` 后重试；仍失败则该时段技术深度整体降级为定性描述（基于消息面+用户已知信息），在报告显著位置写明"技术指标引擎不可用（akshare 缺失），本次技术面为定性判断，无指标数值"。
+- **专业金融 MCP（Wind）不可用 / 额度不足**：降级到本地已安装的 Python 行情包取日线 CSV；若本地行情包产出 CSV 成功，后续 `compute_indicators.py` 照常运行，在报告技术面小节注明"本次技术指标由本地脚本计算（Wind MCP 不可用）"。
+- **专业 MCP 与本地行情包均失败**：该标的无法获取结构化日线，技术深度整体降级。若仍有联网搜索可用，仅做定性描述（"近期走势偏强/偏弱/震荡"），不给出任何指标数值、均线价位、金叉死叉信号；在报告显著位置写明"技术指标引擎不可用（专业 MCP 及本地行情包均获取失败），本次技术面为定性判断，无指标数值"。
 - **某标的取数失败 / 历史不足 60 日**（次新股、停牌）：跳过该标的技术卡片的指标部分，标注"数据不足，技术面跳过"，其余维度正常写。meta 里 `flags.insufficient_history=true` 时主动说明长周期均线不可信。
 - **基准指数缺失**（benchmark 抓取失败）：`relative_strength` 为 null，跳过"alpha/相对强弱"维度并说明"本次缺相对大盘强弱"，其余维度照常。
-- **指数/ETF 接口列名报错**（akshare 版本差异导致 `index_zh_a_hist`/`fund_etf_hist_em` 字段变动）：把报错原样告知用户，提示 `pip install -U akshare`，该标的降级为定性，不硬编数字。
+- **取到的 CSV 列名与数据契约不符**：降级为定性描述，不硬编数字。
 - **盘中/早间本就不跑引擎**：若需承接的昨晚 evening 报告不存在，如实说明"无昨晚参考位"，只做定性，不回填、不编造历史测算位。
 
 降级时始终遵守 boundaries §7 的"诚实声明技术分析的局限"：缺什么说什么，不用想象的数字填满报告。

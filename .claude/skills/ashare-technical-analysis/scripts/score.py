@@ -5,7 +5,7 @@ score.py — 多维度技术面打分与结论生成
 
 输入:
   --indicators-json  compute_indicators.py 的输出
-  --meta-json        fetch_data.py 的输出(用于读取数据质量flags做风险否决)
+  --meta-json        数据获取步骤产出的meta JSON(用于读取数据质量flags做风险否决)
 
 输出: 一份JSON,包含:
   - dimension_scores: 五个维度各自的分数(-2..2)与理由列表
@@ -299,17 +299,22 @@ def main():
         confidence = "低"
 
     # 风险否决规则
+    # hard_override: 数据本身不可靠,强制改观望; soft_override: 仅压低置信度,不改方向
     risk_overrides = []
+    hard_override = False
     if flags.get("is_st"):
         risk_overrides.append("标的存在ST/*ST标记,退市与财务异常风险显著,技术分析参考价值大幅降低")
+        hard_override = True
     if flags.get("insufficient_history"):
         risk_overrides.append("历史数据不足60个交易日,中长期均线/趋势结论可信度低")
+        hard_override = True
     if flags.get("suspected_suspension_gaps", 0) > 0:
         risk_overrides.append("数据中存在疑似长期停牌缺口,技术形态被打断,结论需谨慎对待")
+        hard_override = True
     if flags.get("recent_limit_move_days", 0) >= 3:
         risk_overrides.append("近期频繁出现涨跌停,波动极端,指标可能失真")
 
-    if any(["ST" in r or "历史数据不足" in r or "停牌" in r for r in risk_overrides]):
+    if hard_override:
         verdict = f"⚠ 数据质量受限,建议观望,暂不依据当前技术信号操作(原始信号倾向: {verdict})"
         confidence = "低"
     elif risk_overrides:

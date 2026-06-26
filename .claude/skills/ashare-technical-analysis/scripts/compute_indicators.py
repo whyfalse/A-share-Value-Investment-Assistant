@@ -3,7 +3,7 @@
 """
 compute_indicators.py — 计算中长期技术分析所需的指标
 
-输入: fetch_data.py产出的标准化日线CSV(date,open,high,low,close,volume,amount,turnover,pct_chg)
+输入: 数据获取步骤产出的标准化日线CSV(date,open,high,low,close,volume,amount,turnover,pct_chg)
 输出: 一份JSON,包含:
   - latest: 最新一个交易日各项指标的数值与状态flag
   - recent_series: 最近N个交易日的精简时间序列(供模型描述近期走势用,不是给用户看图表)
@@ -278,7 +278,7 @@ def round_or_none(v, nd=2):
 
 def main():
     parser = argparse.ArgumentParser(description="计算中长期技术分析指标")
-    parser.add_argument("--csv", required=True, help="fetch_data.py产出的标准化日线CSV路径")
+    parser.add_argument("--csv", required=True, help="数据获取步骤产出的标准化日线CSV路径")
     parser.add_argument("--benchmark-csv", default=None, help="基准指数CSV路径(可选)")
     parser.add_argument("--out-json", required=True, help="输出JSON路径")
     parser.add_argument("--recent-n", type=int, default=20, help="recent_series包含最近多少个交易日")
