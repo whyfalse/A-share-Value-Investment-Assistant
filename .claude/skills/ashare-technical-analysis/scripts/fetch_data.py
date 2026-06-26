@@ -199,40 +199,110 @@ def fetch_index_via_akshare(index_code, start, end):
         return None
 
 
+def fetch_index_full_via_akshare(code6, start, end):
+    """抓取指数完整OHLCV,用于对指数本身(上证/深证/创业板/科创50等)做技术分析。
+    注意:index_zh_a_hist 用6位指数代码(如 000001 上证、399006 创业板指、000688 科创50),
+    与同名个股代码可能冲突——指数分析必须显式走本函数(--asset-type index),不要走个股路径。"""
+    try:
+        import akshare as ak
+    except ImportError:
+        return None, "未安装akshare,请先执行: pip install akshare"
+    try:
+        df = ak.index_zh_a_hist(
+            symbol=code6, period="daily",
+            start_date=start.replace("-", ""), end_date=end.replace("-", ""),
+        )
+        if df is None or df.empty:
+            return None, "akshare指数接口返回空数据(指数代码可能错误)"
+        df = df.rename(
+            columns={
+                "日期": "date", "开盘": "open", "收盘": "close", "最高": "high",
+                "最低": "low", "成交量": "volume", "成交额": "amount",
+                "涨跌幅": "pct_chg", "换手率": "turnover",
+            }
+        )
+        df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
+        for c in ["open", "high", "low", "close", "volume", "amount", "turnover", "pct_chg"]:
+            if c not in df.columns:
+                df[c] = pd.NA
+        df = df[["date"] + [c for c in STANDARD_COLUMNS if c != "date"]]
+        return _safe_pct_chg(df), None
+    except Exception as e:  # noqa: BLE001
+        return None, f"akshare指数请求失败: {e}"
+
+
+def fetch_etf_via_akshare(code6, start, end):
+    """抓取ETF/LOF场内基金完整OHLCV(前复权),用于对持仓ETF(如159558半导体设备ETF)做技术分析。"""
+    try:
+        import akshare as ak
+    except ImportError:
+        return None, "未安装akshare,请先执行: pip install akshare"
+    try:
+        df = ak.fund_etf_hist_em(
+            symbol=code6, period="daily",
+            start_date=start.replace("-", ""), end_date=end.replace("-", ""),
+            adjust="qfq",
+        )
+        if df is None or df.empty:
+            return None, "akshare ETF接口返回空数据(基金代码可能错误)"
+        df = df.rename(
+            columns={
+                "日期": "date", "开盘": "open", "收盘": "close", "最高": "high",
+                "最低": "low", "成交量": "volume", "成交额": "amount",
+                "涨跌幅": "pct_chg", "换手率": "turnover",
+            }
+        )
+        df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
+        for c in ["open", "high", "low", "close", "volume", "amount", "turnover", "pct_chg"]:
+            if c not in df.columns:
+                df[c] = pd.NA
+        df = df[["date"] + [c for c in STANDARD_COLUMNS if c != "date"]]
+        return _safe_pct_chg(df), None
+    except Exception as e:  # noqa: BLE001
+        return None, f"akshare ETF请求失败: {e}"
+
+
 # ----------------------------------------------------------------------------
 # 数据质量检查
 # ----------------------------------------------------------------------------
-def quality_checks(df, name_hint=""):
+def quality_checks(df, name_hint="", asset_type="stock"):
     flags = {}
     warnings = []
+    flags["asset_type"] = asset_type
 
     n = len(df)
     flags["rows"] = n
     flags["insufficient_history"] = n < 60
     if flags["insufficient_history"]:
-        warnings.append(f"历史数据仅{n}个交易日(<60),可能为次新股或停牌过久,中长期均线/趋势判断可信度低。")
+        hint = "次新股或停牌过久" if asset_type == "stock" else "上市时间较短"
+        warnings.append(f"历史数据仅{n}个交易日(<60),可能{hint},中长期均线/趋势判断可信度低。")
 
     # 疑似停牌缺口检测: 连续两条记录之间日历日差超过15天,在A股语境下大概率是长期停牌
+    # (指数不停牌,此检测对 index 无意义但保留——指数正常情况下不会触发)
     dates = pd.to_datetime(df["date"])
     gaps = dates.diff().dt.days
     big_gaps = gaps[gaps > 15]
     flags["suspected_suspension_gaps"] = int(len(big_gaps))
-    if len(big_gaps) > 0:
+    if len(big_gaps) > 0 and asset_type != "index":
         warnings.append(f"检测到{len(big_gaps)}处可能的长期停牌缺口(间隔>15天),期间技术形态被打断,解读时需谨慎。")
 
-    # ST/*ST 标记(仅能从名称推断,best-effort)
-    is_st = bool(re.search(r"ST", name_hint.upper())) if name_hint else False
+    # ST/*ST 标记: 仅对个股有意义(指数/ETF不存在ST)
+    is_st = bool(re.search(r"ST", name_hint.upper())) if (name_hint and asset_type == "stock") else False
     flags["is_st"] = is_st
     if is_st:
         warnings.append("股票名称包含ST标记,存在退市/财务异常风险,技术分析对此类标的参考价值显著降低。")
 
-    # 近期涨跌停频繁检测(用最近20个交易日的pct_chg绝对值估算,科创板/创业板/北交所阈值~20%,其余~10%)
-    recent = df.tail(20)
-    threshold = 19.5 if name_hint.upper().startswith(("688", "300")) else 9.5
-    limit_days = (recent["pct_chg"].abs() >= threshold).sum()
-    flags["recent_limit_move_days"] = int(limit_days)
-    if limit_days >= 3:
-        warnings.append(f"最近20个交易日中有{int(limit_days)}天接近涨跌停,波动极端,指标可能失真,建议降低仓位/放宽止损。")
+    # 近期涨跌停频繁检测: 指数无涨跌停,跳过;个股/ETF保留
+    # (个股科创板/创业板/北交所阈值~20%,其余~10%;ETF多为10%,统一用10%阈值偏保守)
+    if asset_type == "index":
+        flags["recent_limit_move_days"] = 0
+    else:
+        recent = df.tail(20)
+        threshold = 19.5 if name_hint.upper().startswith(("688", "300")) else 9.5
+        limit_days = (recent["pct_chg"].abs() >= threshold).sum()
+        flags["recent_limit_move_days"] = int(limit_days)
+        if limit_days >= 3:
+            warnings.append(f"最近20个交易日中有{int(limit_days)}天接近涨跌停,波动极端,指标可能失真,建议降低仓位/放宽止损。")
 
     return flags, warnings
 
@@ -262,13 +332,21 @@ def main():
     parser.add_argument("--lookback-days", type=int, default=730, help="未指定--start时,从--end往前回溯的日历天数")
     parser.add_argument("--config", default=None, help="data_source.yaml路径,默认仅尝试akshare")
     parser.add_argument("--out-dir", default="./output", help="输出目录")
+    parser.add_argument(
+        "--asset-type", default="stock", choices=["stock", "index", "etf"],
+        help="标的类型: stock(默认,个股)/index(指数,如000001上证、399006创业板指、000688科创50)/"
+             "etf(场内基金,如159558)。index/etf 仅支持 akshare 与 local_csv 数据源。",
+    )
     args = parser.parse_args()
 
+    asset_type = args.asset_type
     end = args.end or datetime.now().strftime("%Y-%m-%d")
     start = args.start or (datetime.strptime(end, "%Y-%m-%d") - timedelta(days=args.lookback_days)).strftime("%Y-%m-%d")
 
     code6, exch = normalize_code(args.code)
-    ts_code = f"{code6}.{exch}"
+    # 指数代码的交易所推断口径与个股不同(如000001可能是上证指数也可能是平安银行),
+    # 故指数的ts_code统一标注为 .IDX 以示区分;个股/ETF沿用推断出的交易所后缀。
+    ts_code = f"{code6}.IDX" if asset_type == "index" else f"{code6}.{exch}"
 
     cfg = load_config(args.config)
     errors = {}
@@ -280,11 +358,22 @@ def main():
             continue
         stype = src["type"]
         if stype == "akshare":
-            df, err = fetch_via_akshare(code6, exch, start, end)
+            if asset_type == "index":
+                df, err = fetch_index_full_via_akshare(code6, start, end)
+            elif asset_type == "etf":
+                df, err = fetch_etf_via_akshare(code6, start, end)
+            else:
+                df, err = fetch_via_akshare(code6, exch, start, end)
         elif stype == "tushare":
-            df, err = fetch_via_tushare(ts_code, start, end, src.get("token", ""))
+            if asset_type != "stock":
+                df, err = None, f"tushare数据源暂不支持asset_type={asset_type},请用akshare或local_csv"
+            else:
+                df, err = fetch_via_tushare(ts_code, start, end, src.get("token", ""))
         elif stype == "efinance":
-            df, err = fetch_via_efinance(code6, start, end)
+            if asset_type != "stock":
+                df, err = None, f"efinance数据源暂不支持asset_type={asset_type},请用akshare或local_csv"
+            else:
+                df, err = fetch_via_efinance(code6, start, end)
         elif stype == "local_csv":
             df, err = fetch_via_local_csv(code6, src)
         else:
@@ -312,12 +401,13 @@ def main():
         sys.exit(1)
 
     df = df.drop_duplicates(subset="date").sort_values("date").reset_index(drop=True)
-    flags, warnings = quality_checks(df, name_hint=code6)
+    flags, warnings = quality_checks(df, name_hint=code6, asset_type=asset_type)
 
-    # 基准指数(可选,失败不影响主流程)
+    # 基准指数(可选,失败不影响主流程)。对指数本身做技术分析时,
+    # "相对自身/相对沪深300强弱"意义不大,故 asset_type=index 时默认跳过基准抓取。
     bench_cfg = cfg.get("benchmark", {"enabled": True, "code": "000300"})
     bench_df = None
-    if bench_cfg.get("enabled", True):
+    if asset_type != "index" and bench_cfg.get("enabled", True):
         bench_df = fetch_index_via_akshare(bench_cfg.get("code", "000300"), start, end)
 
     out_csv_path = os.path.join(args.out_dir, f"{code6}_daily.csv")
@@ -333,6 +423,7 @@ def main():
     meta = {
         "ok": True,
         "code": ts_code,
+        "asset_type": asset_type,
         "data_source_used": used_source,
         "date_range": [df["date"].iloc[0], df["date"].iloc[-1]],
         "rows": int(len(df)),
