@@ -20,14 +20,11 @@ run_review.py — A股复盘定时调度入口
 
 import argparse
 import datetime as dt
-import os
-import re
-import smtplib
 import subprocess
 import sys
-from email.mime.text import MIMEText
-from email.header import Header
 from pathlib import Path
+
+from scheduler.email_sender import send_email
 
 try:
     import yaml
@@ -47,13 +44,6 @@ def log(msg):
     line = f"[{stamp}] {msg}"
     print(line, flush=True)
     _LOG_LINES.append(line)
-
-
-def expand_env(value):
-    """把字符串里的 ${VAR} 替换为环境变量值; 非字符串原样返回。"""
-    if not isinstance(value, str):
-        return value
-    return re.sub(r"\$\{([^}]+)\}", lambda m: os.environ.get(m.group(1), ""), value)
 
 
 def load_config(path: Path) -> dict:
@@ -167,43 +157,6 @@ def run_skill(skill: str, cfg: dict) -> str:
     return out
 
 
-# ---------- 邮件发送 ----------
-def send_email(cfg: dict, subject: str, body: str):
-    ecfg = cfg.get("email", {}) or {}
-    if not ecfg.get("enabled", False):
-        log("邮件发送已禁用(email.enabled=false), 跳过")
-        return
-
-    host = ecfg["smtp_host"]
-    port = int(ecfg["smtp_port"])
-    use_ssl = bool(ecfg.get("use_ssl", True))
-    username = expand_env(ecfg.get("username", ""))
-    password = expand_env(ecfg.get("password", ""))
-    sender = expand_env(ecfg.get("sender", username))
-    recipients = [expand_env(r) for r in (ecfg.get("recipients") or [])]
-    if not recipients:
-        raise RuntimeError("email.recipients 为空, 无法发送")
-
-    msg = MIMEText(body, "plain", "utf-8")
-    msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = sender
-    msg["To"] = ", ".join(recipients)
-
-    log(f"发送邮件到 {recipients} via {host}:{port} (ssl={use_ssl})")
-    if use_ssl:
-        server = smtplib.SMTP_SSL(host, port, timeout=60)
-    else:
-        server = smtplib.SMTP(host, port, timeout=60)
-        server.starttls()
-    try:
-        if username:
-            server.login(username, password)
-        server.sendmail(sender, recipients, msg.as_string())
-    finally:
-        server.quit()
-    log("邮件发送成功")
-
-
 # ---------- 日志落盘与清理 ----------
 def flush_log(cfg: dict, skill: str):
     lcfg = cfg.get("log", {}) or {}
@@ -272,15 +225,15 @@ def main():
     try:
         report = run_skill(skill, cfg)
         if not args.no_email:
-            send_email(cfg, f"{prefix} {skill} {date_str}", report)
+            send_email(ecfg, f"{prefix} {skill} {date_str}", report, log)
         flush_log(cfg, skill)
         return 0
     except Exception as e:
         log(f"执行失败: {e}")
         if not args.no_email and ecfg.get("send_on_failure", True):
             try:
-                send_email(cfg, f"{prefix} 失败告警 {skill} {date_str}",
-                           f"技能 {skill} 执行失败:\n\n{e}\n\n--- 运行日志 ---\n" + "\n".join(_LOG_LINES))
+                send_email(ecfg, f"{prefix} 失败告警 {skill} {date_str}",
+                           f"技能 {skill} 执行失败:\n\n{e}\n\n--- 运行日志 ---\n" + "\n".join(_LOG_LINES), log)
             except Exception as e2:
                 log(f"告警邮件也发送失败: {e2}")
         flush_log(cfg, skill)
