@@ -20,9 +20,19 @@ run_review.py — A股复盘定时调度入口
 
 import argparse
 import datetime as dt
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+# 以 `python scheduler/run_review.py` 方式启动时, sys.path[0] 是脚本所在目录
+# (scheduler/) 而非项目根, 导致 `from scheduler.email_sender import ...` 找不到
+# scheduler 包。这里先把项目根插入 sys.path, 使两种启动方式都可用:
+#   python scheduler/run_review.py
+#   python -m scheduler.run_review
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from scheduler.email_sender import send_email
 
@@ -31,8 +41,6 @@ try:
 except ImportError:
     sys.stderr.write("缺少依赖 PyYAML, 请先 pip install pyyaml\n")
     raise
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WEEKDAY_ALIASES = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 
 _LOG_LINES = []
@@ -116,7 +124,17 @@ def run_skill(skill: str, cfg: dict) -> str:
     ccfg = cfg.get("claude", {}) or {}
     prompt = ccfg.get("prompt", "请执行 {skill} 技能并输出完整中文报告。").format(skill=skill)
 
-    cmd = [ccfg.get("bin", "claude"), "-p", prompt, "--output-format", "text"]
+    # Windows 上 npm 全局安装的 claude 是 claude.cmd 垫片; subprocess 不带 shell=True
+    # 时只按 .exe 查找会报 [WinError 2]。用 shutil.which 解析完整路径(PATHEXT 会命中
+    # .cmd/.bat), 既跨平台, 又能在未安装时给出清晰提示。
+    bin_name = ccfg.get("bin", "claude")
+    claude_bin = shutil.which(bin_name)
+    if claude_bin is None:
+        raise RuntimeError(
+            f"在 PATH 中找不到 claude 可执行文件 '{bin_name}'。"
+            f"请确认 Claude Code 已安装, 或在 config.yaml 的 claude.bin 填绝对路径。"
+        )
+    cmd = [claude_bin, "-p", prompt, "--output-format", "text"]
 
     perm = ccfg.get("permission_mode", "bypassPermissions")
     if perm == "bypassPermissions":
