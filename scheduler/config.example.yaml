@@ -69,7 +69,7 @@ email:
 # 移动端数据看板 HTML 文件, 并作为邮件正文(HTML 格式)发送。
 # 关闭时按原逻辑发送纯文本邮件。
 dashboard:
-  enabled: false
+  enabled: true
 
 # ---------- 日志 ----------
 log:

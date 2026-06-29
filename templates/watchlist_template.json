@@ -6,8 +6,7 @@
       "ticker": "(待填写)",
       "name": "(待填写)",
       "target_buy_condition": "(待填写——例如:PE回落至XX以下,或股价回到XX估值区间)",
-      "notes": "(待填写——关注理由)",
-      "last_reviewed": null
+      "notes": "(待填写——关注理由)"
     }
   ]
 }
