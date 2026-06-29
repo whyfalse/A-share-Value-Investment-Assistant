@@ -64,6 +64,13 @@ email:
   subject_prefix: "[A股复盘]"        # 主题前缀, 后接技能名与日期
   send_on_failure: true              # 复盘失败时是否也发邮件通知(便于发现哑火)
 
+# ---------- 数据看板 ----------
+# 是否在复盘报告生成后, 自动调用 ashare-dashboard 技能将报告渲染为
+# 移动端数据看板 HTML 文件, 并作为邮件正文(HTML 格式)发送。
+# 关闭时按原逻辑发送纯文本邮件。
+dashboard:
+  enabled: false
+
 # ---------- 日志 ----------
 log:
   dir: scheduler/logs                # 相对项目根目录; 每次运行写一份带时间戳的日志

@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 # 以 `python scheduler/run_review.py` 方式启动时, sys.path[0] 是脚本所在目录
 # (scheduler/) 而非项目根, 导致 `from scheduler.email_sender import ...` 找不到
@@ -42,6 +43,14 @@ except ImportError:
     sys.stderr.write("缺少依赖 PyYAML, 请先 pip install pyyaml\n")
     raise
 WEEKDAY_ALIASES = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+
+# 复盘技能 → 数据看板模板前缀
+SKILL_TO_DASHBOARD_PREFIX = {
+    "ashare-morning-brief": "morning_brief",
+    "ashare-intraday-review": "intraday_review",
+    "ashare-evening-review": "evening_review",
+    "ashare-weekly-review": "weekly_review",
+}
 
 _LOG_LINES = []
 
@@ -119,10 +128,15 @@ def is_trading_day(now: dt.datetime, cfg: dict) -> bool:
 
 
 # ---------- 调用 claude 无头执行技能 ----------
-def run_skill(skill: str, cfg: dict) -> str:
+def run_skill(skill: str, cfg: dict, dashboard_enabled: bool = False) -> str:
     """以无头模式调用 claude 执行技能, 返回报告正文; 失败抛 RuntimeError。"""
     ccfg = cfg.get("claude", {}) or {}
     prompt = ccfg.get("prompt", "请执行 {skill} 技能并输出完整中文报告。").format(skill=skill)
+    if dashboard_enabled:
+        prompt += (
+            " 报告完成后, 调用 ashare-dashboard 技能, "
+            "将上述报告内容渲染为移动端数据看板 HTML 文件, 保存到 output/ashare-dashboard/ 目录。"
+        )
 
     # Windows 上 npm 全局安装的 claude 是 claude.cmd 垫片; subprocess 不带 shell=True
     # 时只按 .exe 查找会报 [WinError 2]。用 shutil.which 解析完整路径(PATHEXT 会命中
@@ -173,6 +187,38 @@ def run_skill(skill: str, cfg: dict) -> str:
         raise RuntimeError("claude 输出为空")
     log(f"技能执行完成, 报告长度 {len(out)} 字符")
     return out
+
+
+# ---------- 数据看板 HTML 文件查找 ----------
+def find_dashboard_html(skill: str, date_str: str) -> Optional[Path]:
+    """在 output/ashare-dashboard/ 中查找指定技能和日期生成的 HTML 文件。
+
+    Args:
+        skill: 复盘技能名, 用于匹配模板前缀 (如 ashare-evening-review → evening_review)
+        date_str: 日期字符串 YYYY-MM-DD
+
+    Returns:
+        匹配的最新 HTML 文件路径, 未找到则返回 None
+    """
+    dashboard_dir = PROJECT_ROOT / "output" / "ashare-dashboard"
+    if not dashboard_dir.is_dir():
+        return None
+
+    prefix = SKILL_TO_DASHBOARD_PREFIX.get(skill)
+    if not prefix:
+        return None
+
+    pattern = f"{prefix}_dashboard_{date_str}"
+    matches = sorted(
+        [f for f in dashboard_dir.glob("*.html") if f.stem.startswith(pattern)],
+        key=lambda f: f.stat().st_mtime,
+        reverse=True,
+    )
+    if matches:
+        log(f"找到数据看板文件: {matches[0]}")
+        return matches[0]
+    log(f"未找到匹配的数据看板文件 (prefix={prefix}, date={date_str})")
+    return None
 
 
 # ---------- 日志落盘与清理 ----------
@@ -238,12 +284,23 @@ def main():
 
     # 3. 执行 + 发邮件
     ecfg = cfg.get("email", {}) or {}
+    dashboard_cfg = cfg.get("dashboard", {}) or {}
+    dashboard_enabled = bool(dashboard_cfg.get("enabled", False))
     prefix = ecfg.get("subject_prefix", "[A股复盘]")
     date_str = now.strftime("%Y-%m-%d")
     try:
-        report = run_skill(skill, cfg)
+        report = run_skill(skill, cfg, dashboard_enabled=dashboard_enabled)
         if not args.no_email:
-            send_email(ecfg, f"{prefix} {skill} {date_str}", report, log)
+            if dashboard_enabled:
+                html_path = find_dashboard_html(skill, date_str)
+                if html_path:
+                    html_body = html_path.read_text(encoding="utf-8")
+                    send_email(ecfg, f"{prefix} {skill} {date_str}", html_body, log, body_type="html")
+                else:
+                    log("数据看板 HTML 文件未找到, 退回纯文本邮件")
+                    send_email(ecfg, f"{prefix} {skill} {date_str}", report, log)
+            else:
+                send_email(ecfg, f"{prefix} {skill} {date_str}", report, log)
         flush_log(cfg, skill)
         return 0
     except Exception as e:
