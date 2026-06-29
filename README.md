@@ -52,7 +52,7 @@
 | 时段 | 技能 | 做什么 |
 |---|---|---|
 | 08:00–09:15 盘前 | `ashare-morning-brief` | 隔夜美股/欧洲/全球汇总，核对隔夜观察事项，产出今日观察清单 |
-| 14:20–15:00 盘中 | `ashare-intraday-review` | 15 分钟快速检查：持仓异动、纪律核对、板块情绪、短期机会 |
+| 14:20–15:00 盘中 | `ashare-intraday-review` | 15 分钟快速检查：持仓异动、纪律核对、板块情绪 |
 | 17:00–23:30 盘后 | `ashare-evening-review` | A股全天+亚太收盘复盘，白天消息面整理，产出隔夜观察事项交棒 |
 | 周日 09:00–12:00 | `ashare-weekly-review` | 周度深度复盘：大盘/持仓/板块/未结事项清算，下周事件预告 |
 
@@ -66,6 +66,7 @@
 | `ashare-intraday-review` | 时间窗 / 手动 | 盘中快速检查 |
 | `ashare-evening-review` | 时间窗 / 手动 | 盘后深度复盘 |
 | `ashare-weekly-review` | 时间窗 / 手动 | 周末深度复盘 |
+| `ashare-opportunity-discovery` | 复盘技能调用 / 手动 | 三时间框架机会发掘（日内/短期/中长期） |
 | `ashare-technical-analysis` | 用户点名个股 | 多维技术指标综合评分（均线/MACD/RSI/布林带/量能等） |
 | `ashare-macro-context` | 手动 / 自动接力 | 13 维度宏观记忆维护（完整维护 & 队列消费两种模式） |
 | `ashare-dashboard` | 自动接力 | 复盘报告 → 移动端数据看板 HTML |
@@ -107,7 +108,7 @@ email:
 
 ```
 .claude/agents/      编排 Agent（investment-assistant）
-.claude/skills/      七个技能，各含 SKILL.md 及专属资源
+.claude/skills/      八个技能，各含 SKILL.md 及专属资源
 data/                运行时个人数据（持仓/自选股/宏观记忆，不入库）
 output/              技能输出产物（报告/看板/技术缓存）
 references/          跨技能共享规则（边界/消息分类/Tier 3 协议/技术深度指南）
