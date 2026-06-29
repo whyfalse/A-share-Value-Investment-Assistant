@@ -31,7 +31,20 @@ description: 在A股交易日收盘后、当晚结合用户的持仓、自选股
 
 ## 复盘内容与执行步骤
 
-> **启动前(取数准备)**:按 `../../../references/data-source-priority.md` 的"取数前配置准备"流程,先读 auto-memory 的 `data-source-config.json` 并做轻量校验;配置缺失或校验失败(关键专业工具消失/依赖缺失/`next_review_due` 过期)时,先接力调用 `ashare-data-source-config` 探测本地工具并重新编排配置,再开始下面的取数。**取数过程中记录每类数据实际使用的工具(primary 还是 fallback),供末尾"数据来源"小节使用。**
+> **启动前(取数准备)**:按 `../../../references/data-source-priority.md` 的"取数前配置准备"流程,先读 auto-memory 的 `data-source-config.json` 并做轻量校验;配置缺失或校验失败(关键专业工具消失/依赖缺失/`next_review_due` 过期、`version<2` 旧结构)时,先接力调用 `ashare-data-source-config` 探测本地工具并重新编排配置,再开始下面的取数。**取数过程中记录每类数据实际使用的工具(primary 还是 fallback),供末尾"数据来源"小节使用。**
+
+### 启动前必须声明的取数计划(gate,未完成不得进入第0步)
+
+执行 `../../../references/data-source-priority.md` 的"取数计划表 gate"章节。本skill涉及的数据桶清单(按此清单逐桶查配置 `routing`):
+
+- `cn_equity_quote` — A股当日全天行情/资金流向/涨跌停情绪
+- `hk_us_equity` — 亚太市场(港股恒指等)收盘行情
+- `overseas_uncovered` — Wind不覆盖的亚太市场(日股/韩股)收盘行情,仅采信定性
+- `news_policy` — 白天消息面(国内政策/行业/公司/国际事件)
+- `announcement_doc` — 持仓/自选股相关公告
+- `cn_tech_daily` — 第0步技术引擎算指标所需日线
+
+输出取数计划表后才允许进入第0步。
 
 ### 0. 技术引擎全量运行(盘后第一步,数据落 `output/_tech_cache/`)
 
@@ -138,13 +151,16 @@ description: 在A股交易日收盘后、当晚结合用户的持仓、自选股
 - 技术参考位移交:各持仓支撑/压力位(供次日早间/盘中承接)
 ```
 
-### 数据来源
-| 数据块 | 来源工具 | 备注 |
-|--------|---------|------|
-| A股全天行情/资金流向 | [按实际填写] | `cn_equity_quote` 桶 |
-| 亚太市场行情 | [按实际填写] | `hk_us_equity` 或 `overseas_uncovered` 桶 |
-| 白天消息资讯 | [按实际填写] | `news_policy` 桶,多源交叉印证 |
-| 技术指标(引擎计算) | 本地脚本 `compute_indicators.py` + `score.py` | 基于 `cn_tech_daily` 桶日线数据 |
+### 数据来源(与启动前取数计划表逐桶核对,事后填报)
+
+| 数据块 | 来源工具(tool_id) | 实际走的层级(primary/fallback) | 备注(失败原因/降级声明) |
+|--------|---------|---------|------|
+| A股全天行情/资金流向 | <填配置 tool_id> | primary / fallback(写明 error.code) | `cn_equity_quote` 桶 |
+| 亚太市场行情 | <填配置 tool_id> | primary / fallback | `hk_us_equity` 或 `overseas_uncovered` 桶 |
+| 白天消息资讯 | <填配置 tool_id> | primary / fallback | `news_policy` 桶;**此行必须含 primary 工具,仅 web_search 时须注明"未经专业资讯源交叉核对"** |
+| 技术指标(引擎计算) | 本地脚本 `compute_indicators.py` + `score.py` | primary | 基于 `cn_tech_daily` 桶日线数据 |
+
+核对规则:每行的"来源工具"与"层级"必须与启动前取数计划表一致;若实际走了 fallback,备注列必须写明 primary 失败的 error.code。`news_policy` 一行若不含配置 primary 工具,视为未完成交叉印证,须在备注列显式声明可靠性局限。
 
 ## 输出保存
 

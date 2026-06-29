@@ -13,10 +13,27 @@
 
 1. **读配置**:读 auto-memory 的 `data-source-config.json`。
 2. **配置不存在** → 接力调用 `ashare-data-source-config`(完整探测模式)先建立配置,再继续。
-3. **配置存在** → 按 `ashare-data-source-config` 的"轻量校验模式"快速核对:配置里标为 `primary` 的关键专业工具此刻是否仍在当前 skill/MCP 列表、运行时依赖是否仍在、`next_review_due` 是否已过期。任一不满足 → 接力调用该技能重新编排;都满足 → 直接用。
+3. **配置存在** → 按 `ashare-data-source-config` 的"轻量校验模式"快速核对:配置 `routing[各桶].primary.tool_id` 指向的关键专业工具此刻是否仍在当前 skill/MCP 列表、运行时依赖是否仍在、`next_review_due` 是否已过期、`version` 是否 ≥ 2(旧字符串式 routing 视为失效)。任一不满足 → 接力调用该技能重新编排;都满足 → 直接用。
 4. **按配置取数**:对每类要取的数据,查 `routing` 对应桶,依 `primary`→`fallbacks` 顺序取,取到即停。
 
 > 轻量校验要快——常规只读配置+比对工具列表,不必每次对每个工具做试探调用,以免拖慢复盘启动。
+
+### 取数计划表 gate(复盘技能启动前必须执行,未完成不得进入取数)
+
+复盘技能 SKILL.md **不硬编码任何具体工具名**——工具选择全部由 `data-source-config.json` 的 `routing` 决定。每个复盘技能在自己的"启动前(取数准备)"段后,必须执行此 gate:
+
+1. 按本技能涉及的数据桶(各 SKILL.md 自行列出本技能用到的桶名清单)逐桶从配置 `routing[桶]` 查出 `primary` 与 `fallbacks`。
+2. 在对话中先输出"取数计划表":
+
+   | 数据桶 | 配置 primary(tool_id) | 配置 fallbacks(tool_id 列表) | 本次将调用(tool_id) | 调用方式(从配置 primary.invoke 取) | 参数提示(从配置 primary.param_hint 取) |
+   |---|---|---|---|---|---|
+   | <桶名> | <从配置读> | <从配置读> | <从配置读> | <从配置读> | <从配置读> |
+
+3. 表中所有工具相关单元格**逐字来自配置 `routing[桶].primary` / `fallbacks` 与 `tools[].invoke`**,不得自行填写具体工具名或编造调用方式——复盘 SKILL.md 里不写任何工具名,工具名只在运行时从配置流入。
+4. 若某桶 `primary.must_try_before_fallback == true`,取数时**必须先实际调用 primary 并记录返回**(成功/无结果/失败+error.code)后才能走 fallback;**不允许跳过 primary 直接用 fallback**。
+5. `news_policy` 桶的 `gate` 字段要求"多工具组合交叉印证,不允许只用单一 web_search"——取数计划表里此桶的"本次将调用"必须是 primary 工具,不得直接填 web_search;primary 失败退化为"仅 web_search"时须在表里标注失败原因并在报告注明"未经专业资讯源交叉核对"。
+6. 输出此表后才允许进入取数;取数过程中若 primary 失败走 fallback,在表中标注失败原因(error.code)。
+7. 报告末尾"数据来源"表必须与此计划表逐桶一致;若某桶实际走了 fallback,数据来源表备注须写明"primary 失败原因(error.code)→ 降级为 fallback 工具"。`news_policy` 一行若不含配置 primary 工具,视为未完成交叉印证,须显式声明可靠性局限。
 
 ## 总原则(配置编排与兜底时都遵守)
 

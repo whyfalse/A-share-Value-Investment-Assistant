@@ -32,7 +32,19 @@ description: 在A股交易日开盘前(典型为8:00-8:20窗口,集合竞价前)
 
 ## 四块推送内容
 
-> **启动前(取数准备)**:按 `../../../references/data-source-priority.md` 的"取数前配置准备"流程,先读 auto-memory 的 `data-source-config.json` 并做轻量校验;配置缺失或校验失败(关键专业工具消失/依赖缺失/`next_review_due` 过期)时,先接力调用 `ashare-data-source-config` 探测本地工具并重新编排配置,再开始取数。隔夜美股/欧股按配置走对应桶——美股美指若专业工具覆盖走专业桶,日股/欧股等不覆盖市场走 `overseas_uncovered` 桶(仅采信定性信息)。**取数过程中记录每类数据实际使用的工具(primary 还是 fallback),供末尾"数据来源"小节使用。**
+> **启动前(取数准备)**:按 `../../../references/data-source-priority.md` 的"取数前配置准备"流程,先读 auto-memory 的 `data-source-config.json` 并做轻量校验;配置缺失或校验失败(关键专业工具消失/依赖缺失/`next_review_due` 过期、`version<2` 旧结构)时,先接力调用 `ashare-data-source-config` 探测本地工具并重新编排配置,再开始取数。隔夜美股/欧股按配置走对应桶——美股美指若专业工具覆盖走专业桶,日股/欧股等不覆盖市场走 `overseas_uncovered` 桶(仅采信定性信息)。**取数过程中记录每类数据实际使用的工具(primary 还是 fallback),供末尾"数据来源"小节使用。**
+
+### 启动前必须声明的取数计划(gate,未完成不得进入第1块取数)
+
+执行 `../../../references/data-source-priority.md` 的"取数计划表 gate"章节。本skill涉及的数据桶清单(按此清单逐桶查配置 `routing`):
+
+- `hk_us_equity` — 隔夜美股三大指数/中概股/美债美元商品
+- `overseas_uncovered` — 欧洲市场、A50期货等Wind不覆盖市场的隔夜表现(仅定性)
+- `news_policy` — 隔夜消息(国内政策/行业/公司/国际事件)
+- `announcement_doc` — 持仓/自选股相关隔夜公告
+- `macro_indicator` — VIX恐慌指数(若专业工具覆盖);否则归入 `overseas_uncovered`
+
+输出取数计划表后才允许进入第1块取数。
 
 ### 1. 隔夜美股
 - 道指、纳指、标普三大指数收盘表现
@@ -117,14 +129,16 @@ description: 在A股交易日开盘前(典型为8:00-8:20窗口,集合竞价前)
 - [标的/主题]: 关注原因(隔夜消息/昨晚遗留/今日日程/技术参考位),仅作观察标记,非操作建议
 ```
 
-### 数据来源
-| 数据块 | 来源工具 | 备注 |
-|--------|---------|------|
-| 隔夜美股行情 | [按实际填写] | `cn_equity_quote`/`hk_us_equity` 桶 |
-| 欧洲及全球其他市场 | [按实际填写] | `overseas_uncovered` 桶,仅定性 |
-| 隔夜消息资讯 | [按实际填写] | `news_policy` 桶,多源交叉印证 |
-| VIX恐慌指数 | [按实际填写] | 专业工具或搜索兜底 |
-| 今日日程 | [按实际填写] | 联网搜索/财经日历 |
+### 数据来源(与启动前取数计划表逐桶核对,事后填报)
+| 数据块 | 来源工具(tool_id) | 实际走的层级(primary/fallback) | 备注(失败原因/降级声明) |
+|--------|---------|---------|------|
+| 隔夜美股行情 | <填配置 tool_id> | primary / fallback(写明 error.code) | `hk_us_equity` 桶 |
+| 欧洲及全球其他市场 | <填配置 tool_id> | primary / fallback | `overseas_uncovered` 桶,仅定性 |
+| 隔夜消息资讯 | <填配置 tool_id> | primary / fallback | `news_policy` 桶;**此行必须含 primary 工具,仅 web_search 时须注明"未经专业资讯源交叉核对"** |
+| VIX恐慌指数 | <填配置 tool_id> | primary / fallback | `macro_indicator` 或 `overseas_uncovered` 桶 |
+| 今日日程 | <填配置 tool_id> | primary / fallback | `news_policy` 桶兜底或财经日历 |
+
+核对规则:每行的"来源工具"与"层级"必须与启动前取数计划表一致;若实际走了 fallback,备注列必须写明 primary 失败的 error.code。`news_policy` 一行若不含配置 primary 工具,视为未完成交叉印证,须在备注列显式声明可靠性局限。
 
 ## 输出保存
 
