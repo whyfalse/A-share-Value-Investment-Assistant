@@ -81,9 +81,3 @@ description: 探测本地实际可用的金融数据获取工具(专业金融MCP
 4. 以上都通过 → 配置有效,直接返回供复盘技能使用,不做多余试探调用。
 
 > 校验要轻:常规情况下只读配置 + 比对工具列表即可,不必每次都对每个工具做试探调用,以免拖慢复盘启动。只有发现疑似失效迹象才升级到完整探测。
-
-## 与其他skill的关系
-
-- **所有复盘/分析技能(morning-brief、intraday-review、evening-review、weekly-review、macro-context、technical-analysis)**:它们取数时按 `data-source-priority.md` 读取本skill产出的 `data-source-config.json` 照做;启动前由编排层接力调用本skill做轻量校验。
-- **`ashare-technical-analysis`**:其技术指标计算依赖"A股技术指标用日线"桶的数据获取链;本skill探测时核实该链的运行时是否就绪,并把它编排进对应桶。
-- **`references/data-source-priority.md`**:本skill是该文档所描述"读配置"流程的生产者;该文档负责告诉各复盘技能"如何读配置、配置缺失/失效时回头调用本skill"。

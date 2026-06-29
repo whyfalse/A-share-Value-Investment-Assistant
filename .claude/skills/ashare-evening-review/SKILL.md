@@ -31,7 +31,7 @@ description: 在A股交易日收盘后、当晚结合用户的持仓、自选股
 
 ## 复盘内容与执行步骤
 
-> **启动前(取数准备)**:按 `../../../references/data-source-priority.md` 的"取数前配置准备"流程,先读 auto-memory 的 `data-source-config.json` 并做轻量校验;配置缺失或校验失败(关键专业工具消失/依赖缺失/`next_review_due` 过期)时,先接力调用 `ashare-data-source-config` 探测本地工具并重新编排配置,再开始下面的取数。
+> **启动前(取数准备)**:按 `../../../references/data-source-priority.md` 的"取数前配置准备"流程,先读 auto-memory 的 `data-source-config.json` 并做轻量校验;配置缺失或校验失败(关键专业工具消失/依赖缺失/`next_review_due` 过期)时,先接力调用 `ashare-data-source-config` 探测本地工具并重新编排配置,再开始下面的取数。**取数过程中记录每类数据实际使用的工具(primary 还是 fallback),供末尾"数据来源"小节使用。**
 
 ### 0. 技术引擎全量运行(盘后第一步,数据落 `output/_tech_cache/`)
 
@@ -138,14 +138,14 @@ description: 在A股交易日收盘后、当晚结合用户的持仓、自选股
 - 技术参考位移交:各持仓支撑/压力位(供次日早间/盘中承接)
 ```
 
+### 数据来源
+| 数据块 | 来源工具 | 备注 |
+|--------|---------|------|
+| A股全天行情/资金流向 | [按实际填写] | `cn_equity_quote` 桶 |
+| 亚太市场行情 | [按实际填写] | `hk_us_equity` 或 `overseas_uncovered` 桶 |
+| 白天消息资讯 | [按实际填写] | `news_policy` 桶,多源交叉印证 |
+| 技术指标(引擎计算) | 本地脚本 `compute_indicators.py` + `score.py` | 基于 `cn_tech_daily` 桶日线数据 |
+
 ## 输出保存
 
 完成上述复盘后,除了在对话中展示,还必须把完整报告落盘保存到 `../../../output/ashare-evening-review/` 文件夹下,文件名为 `evening_review_[日期].md`(日期用当日,格式 `YYYY-MM-DD`,如 `evening_review_2026-06-25.md`)。若文件夹不存在则先创建。同名文件已存在时直接覆盖(同一天重复复盘以最新一次为准)。
-
-## 与其他skill的关系
-
-- **`ashare-intraday-review`**:本skill承接其当日盘中复盘留下的"待办/未结疑点"并尽量给出结论,形成"盘中→晚间"的收口;两者共享同一套引用边界(boundaries.md)。
-- **`ashare-morning-brief`**:本skill产出的"隔夜需观察事项"交棒给次日早间消息推送跟进隔夜进展;白天消息窗口与早间消息推送的隔夜窗口首尾相接,合成完整24小时闭环。
-- **`ashare-opportunity-discovery`**:本skill在第4步(板块轮动持续性)之后委托该skill(scope=short_term)进行日间窗口短期机会发掘,将本skill第1步(全天A股复盘)、第3步(白天消息面整理)、第4步(板块轮动持续性)的产出作为其扫描素材,并将发掘结果嵌入本skill输出报告的"短期机会发掘"栏。机会发掘的逻辑、框架、过滤规则和独立保存由该skill统一维护,本skill不重复内嵌。
-- **`ashare-macro-context`**:本skill对 Tier 3 级新事件产出更新建议追加至队列,由 macro-context 统一消费处理。正式条目的新建、candidates 转正、框架级维护仍由该skill负责。
-- **`ashare-technical-analysis`**:晚间复盘的第0步会直接调用该引擎的指标计算脚本对四大指数和每只持仓/自选股全量算技术指标,作为大盘技术面表和持仓四维卡片的数据来源——技术深度已内置,不再外包。调用方法/字段口径/降级规则统一遵循 `../../../references/technical-depth-guide.md`。若用户需要对某只标的做更长篇的纯技术面专题报告(完整的多维指标解读+图表),仍可另行单独触发该skill展开。
